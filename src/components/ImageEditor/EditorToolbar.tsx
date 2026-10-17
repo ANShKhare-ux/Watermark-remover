@@ -15,6 +15,7 @@ import type { BrushTool } from '../../types';
 import styles from './EditorToolbar.module.css';
 
 export interface EditorToolbarProps {
+  actionLabel?: string;
   activeTool: BrushTool;
   onSelectTool: (tool: BrushTool) => void;
   brushSize: number;
@@ -35,6 +36,7 @@ export interface EditorToolbarProps {
 }
 
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({
+  actionLabel = 'Inpaint (Telea)',
   activeTool,
   onSelectTool,
   brushSize,
@@ -78,7 +80,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
           ) : (
             <>
               <Sparkles size={15} color="#e11d48" />
-              <span>Inpaint (Telea)</span>
+              <span>{actionLabel}</span>
             </>
           )}
         </button>

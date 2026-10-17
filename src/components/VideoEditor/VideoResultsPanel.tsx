@@ -148,9 +148,16 @@ export const VideoResultsPanel: React.FC<VideoResultsPanelProps> = ({
               <Layers size={13} />
               Processed Results
             </span>
-            <Badge tone="success" withDot>
-              Complete
+            <Badge tone="info" withDot>
+              Preview Ready
             </Badge>
+          </div>
+
+          <div className={styles.previewNotice}>
+            <span className={styles.previewBadge}>In-Memory Preview</span>
+            <span>
+              Reconstructed frames are active in browser memory. Click Download Cleaned Video below to save the MP4 to your device.
+            </span>
           </div>
 
           <div className={styles.metricsGrid}>

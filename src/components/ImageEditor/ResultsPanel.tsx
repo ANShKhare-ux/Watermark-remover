@@ -45,9 +45,16 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({
               <Activity size={13} />
               Inpainting Execution
             </span>
-            <Badge tone="success" withDot>
-              Complete
+            <Badge tone="info" withDot>
+              Preview Ready
             </Badge>
+          </div>
+
+          <div className={styles.previewNotice}>
+            <span className={styles.previewBadge}>In-Memory Preview</span>
+            <span>
+              Reconstructed pixels are active in browser canvas memory. Use Download below to export the file to your device.
+            </span>
           </div>
 
           <div className={styles.metricsGrid}>

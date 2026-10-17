@@ -144,7 +144,10 @@ export async function executeInpainting(
 
     // 7. Extract processed pixels into standard browser ImageData
     const outputData = new Uint8ClampedArray(dstRGBA.data);
-    const outputImageData = new ImageData(outputData, width, height);
+    const outputImageData =
+      typeof ImageData !== 'undefined'
+        ? new ImageData(outputData, width, height)
+        : ({ width, height, data: outputData } as unknown as ImageData);
 
     const computeTimeMs = Math.round(performance.now() - startTime);
 

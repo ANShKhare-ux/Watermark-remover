@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment & deployment artifacts
+.env
+.env.*
+!.env.example
+.vercel
+*.tsbuildinfo
+

@@ -8,6 +8,8 @@ import {
   Paintbrush,
   Search,
   Video as VideoIcon,
+  HelpCircle,
+  MessageSquare,
 } from 'lucide-react';
 import type {
   ImageFileState,
@@ -32,9 +34,44 @@ import { UploadPanel } from '../UploadPanel/UploadPanel';
 import { MediaPreview } from '../MediaPreview/MediaPreview';
 import { FileInfoPanel } from '../FileInfoPanel/FileInfoPanel';
 import { ProvenancePanel } from '../ProvenancePanel/ProvenancePanel';
-import { ImageEditor } from '../ImageEditor/ImageEditor';
-import { VideoEditor } from '../VideoEditor/VideoEditor';
+import { BetaGuideModal } from '../BetaGuideModal/BetaGuideModal';
+import { FeedbackModal } from '../FeedbackModal/FeedbackModal';
 import styles from './AppShell.module.css';
+
+const ImageEditor = React.lazy(() =>
+  import('../ImageEditor/ImageEditor').then((m) => ({ default: m.ImageEditor }))
+);
+const VideoEditor = React.lazy(() =>
+  import('../VideoEditor/VideoEditor').then((m) => ({ default: m.VideoEditor }))
+);
+
+const EditorLoadingFallback: React.FC<{ message: string }> = ({ message }) => (
+  <div
+    style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '100%',
+      height: '100%',
+      gap: '12px',
+      color: 'var(--text-secondary)',
+      backgroundColor: 'var(--bg-app)',
+    }}
+  >
+    <div
+      style={{
+        width: '28px',
+        height: '28px',
+        border: '2px solid var(--border-default)',
+        borderTopColor: 'var(--text-primary)',
+        borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite',
+      }}
+    />
+    <span style={{ fontSize: '13px', fontWeight: 500 }}>{message}</span>
+  </div>
+);
 
 export const AppShell: React.FC = () => {
   const [imageState, setImageState] = useState<ImageFileState | null>(null);
@@ -45,6 +82,14 @@ export const AppShell: React.FC = () => {
   const [notifications, setNotifications] = useState<StatusNotification[]>([]);
   const [activeTab, setActiveTab] = useState<'details' | 'provenance'>('details');
   const [appMode, setAppMode] = useState<'editor' | 'inspect'>('editor');
+  const [showBetaGuide, setShowBetaGuide] = useState<boolean>(() => {
+    try {
+      return !localStorage.getItem('clearframe_beta_guide_dismissed');
+    } catch {
+      return false;
+    }
+  });
+  const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
 
   // Track active Object URLs for clean revocation
   const activeImageUrlRef = useRef<string | null>(null);
@@ -315,6 +360,26 @@ export const AppShell: React.FC = () => {
             <span>Client Sandbox • Zero Telemetry</span>
           </div>
 
+          <button
+            type="button"
+            className={styles.headerButton}
+            onClick={() => setShowBetaGuide(true)}
+            title="Open ClearFrame Beta Guide & System Limits"
+          >
+            <HelpCircle size={13} />
+            <span>Beta Guide</span>
+          </button>
+
+          <button
+            type="button"
+            className={styles.headerButton}
+            onClick={() => setShowFeedbackModal(true)}
+            title="Submit bug report or feedback"
+          >
+            <MessageSquare size={13} />
+            <span>Feedback</span>
+          </button>
+
           {hasMedia && (
             <button
               type="button"
@@ -340,22 +405,26 @@ export const AppShell: React.FC = () => {
           </div>
         ) : videoState ? (
           /* Phase 3: Video Cleanup MVP Workspace */
-          <VideoEditor
-            key={`video-editor-${videoState.objectUrl}`}
-            videoState={videoState}
-            onNotification={addNotification}
-            onResetVideo={clearActiveMedia}
-          />
+          <React.Suspense fallback={<EditorLoadingFallback message="Loading video editor suite…" />}>
+            <VideoEditor
+              key={`video-editor-${videoState.objectUrl}`}
+              videoState={videoState}
+              onNotification={addNotification}
+              onResetVideo={clearActiveMedia}
+            />
+          </React.Suspense>
         ) : appMode === 'editor' && imageState ? (
           /* Phase 2: Functional Image Cleanup Editor */
-          <ImageEditor
-            key={`editor-${imageState.objectUrl}`}
-            imageState={imageState}
-            exif={exifMetadata}
-            provenance={provenanceData}
-            onNotification={addNotification}
-            onResetImage={clearActiveMedia}
-          />
+          <React.Suspense fallback={<EditorLoadingFallback message="Loading image cleanup editor…" />}>
+            <ImageEditor
+              key={`editor-${imageState.objectUrl}`}
+              imageState={imageState}
+              exif={exifMetadata}
+              provenance={provenanceData}
+              onNotification={addNotification}
+              onResetImage={clearActiveMedia}
+            />
+          </React.Suspense>
         ) : imageState ? (
           /* Phase 1: Inspection & Provenance Workspace */
           <div className={styles.inspectionWorkspace}>
@@ -449,10 +518,21 @@ export const AppShell: React.FC = () => {
           <span>•</span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
             <Sparkles size={11} />
-            <span>Phase 3: Video MVP</span>
+            <span>ClearFrame v0.1.0-rc</span>
           </span>
         </div>
       </footer>
+
+      {/* Beta Onboarding Guide & Feedback Modals */}
+      <BetaGuideModal
+        isOpen={showBetaGuide}
+        onClose={() => setShowBetaGuide(false)}
+      />
+      <FeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
+        onNotification={addNotification}
+      />
     </div>
   );
 };

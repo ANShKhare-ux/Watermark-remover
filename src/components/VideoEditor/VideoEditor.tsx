@@ -249,6 +249,7 @@ export const VideoEditor: React.FC<VideoEditorProps> = ({
     <div className={styles.container}>
       {/* Left Toolbar for drawing & inpaint triggers */}
       <EditorToolbar
+        actionLabel="Inpaint Video (Telea)"
         activeTool={activeTool}
         onSelectTool={setActiveTool}
         brushSize={brushSize}

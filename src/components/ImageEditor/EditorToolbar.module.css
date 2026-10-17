@@ -220,3 +220,14 @@
   border-radius: 50%;
   background-color: var(--tone-success);
 }
+
+@media (max-width: 900px) {
+  .toolbar {
+    width: 100%;
+    min-width: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--border-default);
+    padding: 12px;
+    gap: 12px;
+  }
+}

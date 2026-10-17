@@ -243,6 +243,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .statusIndicator {
@@ -250,6 +252,10 @@
   align-items: center;
   gap: 6px;
   color: var(--text-secondary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .statusDot {
@@ -257,6 +263,7 @@
   height: 6px;
   border-radius: 50%;
   background-color: var(--tone-success);
+  flex-shrink: 0;
 }
 
 .footerRight {
