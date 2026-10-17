@@ -24,8 +24,6 @@ let c2paPromise: Promise<any> | null = null;
 async function getC2paInstance() {
   if (!c2paPromise) {
     c2paPromise = createC2pa().catch((err) => {
-      // If Web Worker or WASM is unavailable in test or restricted environment
-      console.warn('C2PA SDK initialization notice:', err);
       c2paPromise = null;
       throw err;
     });

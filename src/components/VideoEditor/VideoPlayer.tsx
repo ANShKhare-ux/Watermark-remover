@@ -40,23 +40,31 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // Extract filmstrip thumbnails
   useEffect(() => {
     let active = true;
+    const offscreenVideo = document.createElement('video');
+    const offCanvas = document.createElement('canvas');
+
     const generateFilmstrip = async () => {
       const thumbCount = 6;
-      const offscreenVideo = document.createElement('video');
       offscreenVideo.src = videoState.objectUrl;
       offscreenVideo.muted = true;
       offscreenVideo.playsInline = true;
 
       await new Promise<void>((resolve) => {
-        offscreenVideo.onloadedmetadata = () => resolve();
-        offscreenVideo.onerror = () => resolve();
+        const timeout = setTimeout(() => resolve(), 3000);
+        offscreenVideo.onloadedmetadata = () => {
+          clearTimeout(timeout);
+          resolve();
+        };
+        offscreenVideo.onerror = () => {
+          clearTimeout(timeout);
+          resolve();
+        };
       });
 
-      const offCanvas = document.createElement('canvas');
       offCanvas.width = 160;
       offCanvas.height = 90;
       const ctx = offCanvas.getContext('2d');
-      if (!ctx) return;
+      if (!ctx || !active) return;
 
       const generated: string[] = [];
       const duration = videoState.duration;
@@ -67,13 +75,20 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         offscreenVideo.currentTime = targetTime;
 
         await new Promise<void>((resolve) => {
+          const timeout = setTimeout(() => {
+            offscreenVideo.removeEventListener('seeked', onSeeked);
+            resolve();
+          }, 1500);
+
           const onSeeked = () => {
+            clearTimeout(timeout);
             offscreenVideo.removeEventListener('seeked', onSeeked);
             resolve();
           };
           offscreenVideo.addEventListener('seeked', onSeeked);
         });
 
+        if (!active) return;
         ctx.drawImage(offscreenVideo, 0, 0, 160, 90);
         generated.push(offCanvas.toDataURL('image/jpeg', 0.6));
       }
@@ -87,6 +102,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     return () => {
       active = false;
+      offscreenVideo.src = '';
+      offscreenVideo.load();
+      offCanvas.width = 0;
+      offCanvas.height = 0;
     };
   }, [videoState.objectUrl, videoState.duration]);
 
@@ -112,7 +131,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   };
 
   // Step 1 frame forward or backward (assuming 30fps: ~0.033s)
-  const stepFrame = (direction: 'forward' | 'backward') => {
+  const stepFrame = useCallback((direction: 'forward' | 'backward') => {
     const video = videoRef.current;
     if (!video) return;
     video.pause();
@@ -126,7 +145,31 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     video.currentTime = newTime;
     onTimeUpdate(newTime);
-  };
+  }, [onTimeUpdate]);
+
+  // Keyboard controls for video playback
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+        return;
+      }
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        stepFrame('forward');
+      } else if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        stepFrame('backward');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [togglePlay, stepFrame]);
 
   const toggleMute = () => {
     const video = videoRef.current;
@@ -196,6 +239,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               className={styles.ctrlButton}
               onClick={togglePlay}
               title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+              aria-label={isPlaying ? 'Pause video' : 'Play video'}
             >
               {isPlaying ? <Pause size={15} /> : <Play size={15} />}
             </button>
@@ -205,6 +249,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               className={styles.ctrlButton}
               onClick={() => stepFrame('backward')}
               title="Step 1 frame backward"
+              aria-label="Step 1 frame backward"
             >
               <SkipBack size={13} />
               <span>-1F</span>
@@ -215,6 +260,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               className={styles.ctrlButton}
               onClick={() => stepFrame('forward')}
               title="Step 1 frame forward"
+              aria-label="Step 1 frame forward"
             >
               <SkipForward size={13} />
               <span>+1F</span>
@@ -226,6 +272,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 className={styles.ctrlButton}
                 onClick={toggleMute}
                 title={isMuted ? 'Unmute audio' : 'Mute audio'}
+                aria-label={isMuted ? 'Unmute audio' : 'Mute audio'}
               >
                 {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
               </button>

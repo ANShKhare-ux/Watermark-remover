@@ -7,14 +7,20 @@ import {
   Sparkles,
   Paintbrush,
   Search,
+  Video as VideoIcon,
 } from 'lucide-react';
 import type {
   ImageFileState,
+  VideoFileState,
   ExifMetadata,
   ProvenanceData,
   StatusNotification,
 } from '../../types';
-import { validateAndDecodeImage } from '../../utils/fileValidation';
+import { validateAndDecodeImage, isFormatSupported } from '../../utils/fileValidation';
+import {
+  validateAndDecodeVideo,
+  isVideoFormatSupported,
+} from '../../utils/videoValidation';
 import { readImageMetadata } from '../../utils/exifReader';
 import {
   calculateAspectRatio,
@@ -27,10 +33,12 @@ import { MediaPreview } from '../MediaPreview/MediaPreview';
 import { FileInfoPanel } from '../FileInfoPanel/FileInfoPanel';
 import { ProvenancePanel } from '../ProvenancePanel/ProvenancePanel';
 import { ImageEditor } from '../ImageEditor/ImageEditor';
+import { VideoEditor } from '../VideoEditor/VideoEditor';
 import styles from './AppShell.module.css';
 
 export const AppShell: React.FC = () => {
   const [imageState, setImageState] = useState<ImageFileState | null>(null);
+  const [videoState, setVideoState] = useState<VideoFileState | null>(null);
   const [exifMetadata, setExifMetadata] = useState<ExifMetadata | null>(null);
   const [provenanceData, setProvenanceData] = useState<ProvenanceData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -38,8 +46,9 @@ export const AppShell: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'details' | 'provenance'>('details');
   const [appMode, setAppMode] = useState<'editor' | 'inspect'>('editor');
 
-  // Track active Object URL for clean revocation
-  const activeUrlRef = useRef<string | null>(null);
+  // Track active Object URLs for clean revocation
+  const activeImageUrlRef = useRef<string | null>(null);
+  const activeVideoUrlRef = useRef<string | null>(null);
 
   const addNotification = useCallback(
     (
@@ -60,22 +69,30 @@ export const AppShell: React.FC = () => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
-  const clearActiveImage = useCallback(() => {
-    if (activeUrlRef.current) {
-      URL.revokeObjectURL(activeUrlRef.current);
-      activeUrlRef.current = null;
+  const clearActiveMedia = useCallback(() => {
+    if (activeImageUrlRef.current) {
+      URL.revokeObjectURL(activeImageUrlRef.current);
+      activeImageUrlRef.current = null;
+    }
+    if (activeVideoUrlRef.current) {
+      URL.revokeObjectURL(activeVideoUrlRef.current);
+      activeVideoUrlRef.current = null;
     }
     setImageState(null);
+    setVideoState(null);
     setExifMetadata(null);
     setProvenanceData(null);
     setAppMode('editor');
   }, []);
 
-  // Cleanup object URL on unmount
+  // Cleanup object URLs on unmount
   useEffect(() => {
     return () => {
-      if (activeUrlRef.current) {
-        URL.revokeObjectURL(activeUrlRef.current);
+      if (activeImageUrlRef.current) {
+        URL.revokeObjectURL(activeImageUrlRef.current);
+      }
+      if (activeVideoUrlRef.current) {
+        URL.revokeObjectURL(activeVideoUrlRef.current);
       }
     };
   }, []);
@@ -83,68 +100,141 @@ export const AppShell: React.FC = () => {
   const handleProcessFile = async (file: File) => {
     setIsLoading(true);
 
-    // 1. Validate file format, size, and decode real pixel dimensions
-    const validation = await validateAndDecodeImage(file);
-    if (!validation.valid) {
-      setIsLoading(false);
-      addNotification('error', 'Validation Error', validation.error);
+    // Route 1: Video File
+    if (isVideoFormatSupported(file)) {
+      try {
+        const validation = await validateAndDecodeVideo(file);
+        if (!validation.valid) {
+          setIsLoading(false);
+          addNotification('error', 'Video Validation Error', validation.error);
+          return;
+        }
+
+        // Clean up previously active media
+        if (activeImageUrlRef.current) {
+          URL.revokeObjectURL(activeImageUrlRef.current);
+          activeImageUrlRef.current = null;
+        }
+        if (activeVideoUrlRef.current) {
+          URL.revokeObjectURL(activeVideoUrlRef.current);
+          activeVideoUrlRef.current = null;
+        }
+
+        const objectUrl = URL.createObjectURL(file);
+        activeVideoUrlRef.current = objectUrl;
+
+        const aspectRatio = calculateAspectRatio(validation.width, validation.height);
+
+        const newVideoState: VideoFileState = {
+          file,
+          objectUrl,
+          name: file.name,
+          size: file.size,
+          type: file.type || 'video/mp4',
+          width: validation.width,
+          height: validation.height,
+          duration: validation.duration,
+          frameRate: validation.frameRate,
+          hasAudio: validation.hasAudio,
+          aspectRatio,
+          loadedAt: Date.now(),
+        };
+
+        setImageState(null);
+        setExifMetadata(null);
+        setProvenanceData(null);
+        setVideoState(newVideoState);
+        setAppMode('editor');
+
+        addNotification(
+          'success',
+          'Video Loaded',
+          `Loaded ${file.name} (${validation.width}×${validation.height}, ${validation.duration.toFixed(1)}s, ${validation.frameRate} fps). Draw a fixed watermark mask to clean up.`
+        );
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to decode video';
+        addNotification('error', 'Video Import Error', msg);
+      } finally {
+        setIsLoading(false);
+      }
       return;
     }
 
-    // 2. Revoke any previously active image URL before creating a new one
-    if (activeUrlRef.current) {
-      URL.revokeObjectURL(activeUrlRef.current);
-      activeUrlRef.current = null;
+    // Route 2: Image File
+    if (isFormatSupported(file)) {
+      try {
+        const validation = await validateAndDecodeImage(file);
+        if (!validation.valid) {
+          setIsLoading(false);
+          addNotification('error', 'Image Validation Error', validation.error);
+          return;
+        }
+
+        // Clean up previously active media
+        if (activeImageUrlRef.current) {
+          URL.revokeObjectURL(activeImageUrlRef.current);
+          activeImageUrlRef.current = null;
+        }
+        if (activeVideoUrlRef.current) {
+          URL.revokeObjectURL(activeVideoUrlRef.current);
+          activeVideoUrlRef.current = null;
+        }
+
+        const objectUrl = URL.createObjectURL(file);
+        activeImageUrlRef.current = objectUrl;
+
+        const width = validation.width;
+        const height = validation.height;
+        const aspectRatio = calculateAspectRatio(width, height);
+        const megapixels = calculateMegapixels(width, height);
+
+        const newImageState: ImageFileState = {
+          file,
+          objectUrl,
+          name: file.name,
+          size: file.size,
+          type: file.type || 'image/unknown',
+          width,
+          height,
+          aspectRatio,
+          megapixels,
+          loadedAt: Date.now(),
+        };
+
+        const extracted = await readImageMetadata(file);
+        setVideoState(null);
+        setImageState(newImageState);
+        setExifMetadata(extracted.exif);
+        setProvenanceData(extracted.provenance);
+        setAppMode('editor');
+
+        addNotification(
+          'success',
+          'Image Loaded',
+          `Successfully loaded ${file.name} (${width} × ${height} px). Brush over visible watermarks to inpaint.`
+        );
+      } catch {
+        addNotification(
+          'warning',
+          'Partial Metadata',
+          'Image decoded, but metadata extraction encountered an issue.'
+        );
+      } finally {
+        setIsLoading(false);
+      }
+      return;
     }
 
-    // 3. Create fresh Object URL
-    const objectUrl = URL.createObjectURL(file);
-    activeUrlRef.current = objectUrl;
-
-    const width = validation.width;
-    const height = validation.height;
-    const aspectRatio = calculateAspectRatio(width, height);
-    const megapixels = calculateMegapixels(width, height);
-
-    const newImageState: ImageFileState = {
-      file,
-      objectUrl,
-      name: file.name,
-      size: file.size,
-      type: file.type || 'image/unknown',
-      width,
-      height,
-      aspectRatio,
-      megapixels,
-      loadedAt: Date.now(),
-    };
-
-    // 4. Read real EXIF and Provenance data
-    try {
-      const extracted = await readImageMetadata(file);
-      setImageState(newImageState);
-      setExifMetadata(extracted.exif);
-      setProvenanceData(extracted.provenance);
-      setAppMode('editor'); // Default to Cleanup Editor for Phase 2
-
-      addNotification(
-        'success',
-        'Image Loaded',
-        `Successfully loaded ${file.name} (${width} × ${height} px). Brush over visible watermarks to inpaint.`
-      );
-    } catch {
-      // Fallback if metadata read throws unexpectedly
-      setImageState(newImageState);
-      setAppMode('editor');
-      addNotification(
-        'warning',
-        'Partial Metadata',
-        'Image preview decoded, but metadata extraction encountered an issue.'
-      );
-    } finally {
-      setIsLoading(false);
-    }
+    // Route 3: Unsupported media
+    setIsLoading(false);
+    addNotification(
+      'error',
+      'Unsupported File Format',
+      `ClearFrame supports images (JPEG, PNG, WebP) and short clips (MP4, WebM up to 5s/720p).`
+    );
   };
+
+  const hasMedia = Boolean(imageState || videoState);
 
   return (
     <div className={styles.container}>
@@ -168,7 +258,9 @@ export const AppShell: React.FC = () => {
           <div className={styles.brandText}>
             <div className={styles.brandName}>
               <span>ClearFrame</span>
-              <Badge tone="neutral">Phase 2 Editor</Badge>
+              <Badge tone="neutral">
+                {videoState ? 'Phase 3 Video MVP' : 'Phase 2 Editor'}
+              </Badge>
             </div>
             <span className={styles.brandTagline}>
               AI Media Cleanup & Provenance Management
@@ -206,17 +298,29 @@ export const AppShell: React.FC = () => {
             </div>
           )}
 
+          {videoState && (
+            <div className={styles.modeSwitcher} role="tablist">
+              <div
+                className={`${styles.modeSwitchButton} ${styles.modeSwitchActive}`}
+                title="Video Inpainting & Processing Active"
+              >
+                <VideoIcon size={13} />
+                <span>Video Cleanup (MVP)</span>
+              </div>
+            </div>
+          )}
+
           <div className={styles.privacyBadge}>
             <ShieldCheck size={13} color="#10b981" />
             <span>Client Sandbox • Zero Telemetry</span>
           </div>
 
-          {imageState && (
+          {hasMedia && (
             <button
               type="button"
               className={styles.headerButton}
-              onClick={clearActiveImage}
-              title="Reset inspection workspace"
+              onClick={clearActiveMedia}
+              title="Reset media workspace"
             >
               <RotateCcw size={13} />
               <span>Reset</span>
@@ -227,14 +331,22 @@ export const AppShell: React.FC = () => {
 
       {/* Main Workspace Area */}
       <main className={styles.main}>
-        {!imageState ? (
+        {!hasMedia ? (
           <div className={styles.uploadWorkspace}>
             <UploadPanel
               onFileSelected={handleProcessFile}
               isLoading={isLoading}
             />
           </div>
-        ) : appMode === 'editor' ? (
+        ) : videoState ? (
+          /* Phase 3: Video Cleanup MVP Workspace */
+          <VideoEditor
+            key={`video-editor-${videoState.objectUrl}`}
+            videoState={videoState}
+            onNotification={addNotification}
+            onResetVideo={clearActiveMedia}
+          />
+        ) : appMode === 'editor' && imageState ? (
           /* Phase 2: Functional Image Cleanup Editor */
           <ImageEditor
             key={`editor-${imageState.objectUrl}`}
@@ -242,9 +354,9 @@ export const AppShell: React.FC = () => {
             exif={exifMetadata}
             provenance={provenanceData}
             onNotification={addNotification}
-            onResetImage={clearActiveImage}
+            onResetImage={clearActiveMedia}
           />
-        ) : (
+        ) : imageState ? (
           /* Phase 1: Inspection & Provenance Workspace */
           <div className={styles.inspectionWorkspace}>
             {/* Center / Left: Interactive Media Preview Canvas */}
@@ -253,7 +365,7 @@ export const AppShell: React.FC = () => {
                 key={`preview-${imageState.objectUrl}`}
                 imageState={imageState}
                 onReplaceImage={handleProcessFile}
-                onClearImage={clearActiveImage}
+                onClearImage={clearActiveMedia}
               />
             </div>
 
@@ -297,7 +409,7 @@ export const AppShell: React.FC = () => {
               </div>
             </aside>
           </div>
-        )}
+        ) : null}
       </main>
 
       {/* Bottom Status Bar */}
@@ -309,31 +421,35 @@ export const AppShell: React.FC = () => {
               style={{
                 backgroundColor: isLoading
                   ? 'var(--tone-warning)'
-                  : imageState
+                  : hasMedia
                   ? 'var(--tone-success)'
                   : 'var(--text-tertiary)',
               }}
             />
             <span>
               {isLoading
-                ? 'Processing image and reading metadata headers…'
+                ? 'Validating and decoding media file…'
+                : videoState
+                ? `Active Video: ${videoState.name} (${videoState.width} × ${videoState.height} px, ${videoState.duration.toFixed(1)}s, ${videoState.frameRate} fps, ${
+                    videoState.hasAudio ? 'Audio: Present' : 'No Audio'
+                  })`
                 : imageState
-                ? `Active Asset: ${imageState.name} (${imageState.width} × ${imageState.height} px) • Mode: ${
+                ? `Active Image: ${imageState.name} (${imageState.width} × ${imageState.height} px) • Mode: ${
                     appMode === 'editor' ? 'Cleanup Editor' : 'Metadata Inspection'
                   }`
-                : 'Ready for image inspection & visible watermark cleanup'}
+                : 'Ready for media inspection & visible watermark cleanup'}
             </span>
           </div>
         </div>
 
         <div className={styles.footerRight}>
-          <span>Engine: OpenCV.js (Telea FMM)</span>
+          <span>OpenCV.js (Telea FMM)</span>
           <span>•</span>
-          <span>Provenance: @contentauth/c2pa-web</span>
+          <span>FFmpeg Wasm Core (Local)</span>
           <span>•</span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
             <Sparkles size={11} />
-            <span>Phase 2: Inpainting Active</span>
+            <span>Phase 3: Video MVP</span>
           </span>
         </div>
       </footer>

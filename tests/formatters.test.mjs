@@ -9,6 +9,7 @@ import {
   formatFocalLength,
   formatDate,
   formatMimeType,
+  sanitizeFilename,
 } from '../src/utils/formatters.ts';
 
 test('Formatters: formatBytes', () => {
@@ -63,4 +64,19 @@ test('Formatters: formatMimeType', () => {
   assert.equal(formatMimeType('image/jpeg', 'photo.jpg'), 'JPEG');
   assert.equal(formatMimeType('image/png', 'icon.png'), 'PNG');
   assert.equal(formatMimeType('image/webp', 'banner.webp'), 'WebP');
+  assert.equal(formatMimeType('video/mp4', 'clip.mp4'), 'MP4');
+  assert.equal(formatMimeType('video/webm', 'screencast.webm'), 'WebM');
+  assert.equal(formatMimeType('', 'data.DAT'), 'DAT');
 });
+
+test('Formatters: sanitizeFilename strips directory traversal, control chars, and malicious patterns', () => {
+  assert.equal(sanitizeFilename('../../etc/passwd.jpg'), 'passwd');
+  assert.equal(sanitizeFilename('..\\..\\windows\\system32\\cmd.exe'), 'cmd');
+  assert.equal(sanitizeFilename('<script>alert(1)</script>.png'), 'script');
+  assert.equal(sanitizeFilename('<img_src=x_onerror=alert(1)>.png'), 'img_src_x_onerror_alert_1');
+  assert.equal(sanitizeFilename('normal-photo_2024.jpeg'), 'normal-photo_2024');
+  assert.equal(sanitizeFilename('file with spaces & symbols!#@.webp'), 'file_with_spaces_symbols');
+  assert.equal(sanitizeFilename('', 'fallback'), 'fallback');
+  assert.equal(sanitizeFilename('...', 'safe_media'), 'safe_media');
+});
+

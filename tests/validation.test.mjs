@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isFormatSupported, MAX_FILE_SIZE_BYTES } from '../src/utils/fileValidation.ts';
+import {
+  isFormatSupported,
+  validateAndDecodeImage,
+  MAX_FILE_SIZE_BYTES,
+} from '../src/utils/fileValidation.ts';
 
 test('Validation: isFormatSupported validates accepted formats', () => {
   assert.equal(isFormatSupported({ name: 'photo.jpg', type: 'image/jpeg' }), true);
@@ -18,3 +22,34 @@ test('Validation: isFormatSupported validates accepted formats', () => {
 test('Validation: MAX_FILE_SIZE_BYTES is 50MB', () => {
   assert.equal(MAX_FILE_SIZE_BYTES, 50 * 1024 * 1024);
 });
+
+test('Validation: validateAndDecodeImage rejects null, empty, oversized, and unsupported files', async () => {
+  const nullResult = await validateAndDecodeImage(null);
+  assert.equal(nullResult.valid, false);
+  assert.match(nullResult.error, /No file was provided/i);
+
+  const emptyResult = await validateAndDecodeImage({
+    name: 'empty.png',
+    type: 'image/png',
+    size: 0,
+  });
+  assert.equal(emptyResult.valid, false);
+  assert.match(emptyResult.error, /empty/i);
+
+  const oversizedResult = await validateAndDecodeImage({
+    name: 'oversized.jpg',
+    type: 'image/jpeg',
+    size: 55 * 1024 * 1024,
+  });
+  assert.equal(oversizedResult.valid, false);
+  assert.match(oversizedResult.error, /safety limit/i);
+
+  const unsupportedResult = await validateAndDecodeImage({
+    name: 'vector.svg',
+    type: 'image/svg+xml',
+    size: 2048,
+  });
+  assert.equal(unsupportedResult.valid, false);
+  assert.match(unsupportedResult.error, /Unsupported format/i);
+});
+

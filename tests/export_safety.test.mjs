@@ -62,3 +62,23 @@ test('Export Safety: Allows export when source image has no metadata or provenan
   assert.equal(safety.blockers.length, 0);
   assert.match(safety.statusLabel, /Export Permitted/i);
 });
+
+test('Export Safety: Blocks export when C2PA has validation_failure status', () => {
+  const mockProvenance = {
+    c2pa: { status: 'validation_failure' },
+    aiLabels: { status: 'not_detected' },
+    exif: { status: 'absent' },
+    synthid: { status: 'not_integrated' },
+  };
+
+  const safety = evaluateExportSafety(null, mockProvenance);
+  assert.equal(safety.canExport, false);
+  assert.equal(safety.hasC2pa, true);
+});
+
+test('Export Safety: Handles null parameters gracefully without throwing', () => {
+  const safety = evaluateExportSafety(null, null);
+  assert.equal(safety.canExport, true);
+  assert.equal(safety.blockers.length, 0);
+});
+

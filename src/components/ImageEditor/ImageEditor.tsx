@@ -13,6 +13,8 @@ import type {
   ProcessedImageState,
 } from '../../types';
 import { getOpenCv, executeInpainting } from '../../services/opencvService';
+import { sanitizeFilename } from '../../utils/formatters';
+import { evaluateExportSafety } from '../../utils/exportSafety';
 import { EditorToolbar } from './EditorToolbar';
 import { MaskCanvas, type MaskCanvasRef } from './MaskCanvas';
 import { ComparisonViewer } from './ComparisonViewer';
@@ -266,11 +268,22 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({
   const handleExportImage = () => {
     if (!processedResult) return;
 
+    // Defense-in-depth: Verify export safety before triggering download
+    const exportSafety = evaluateExportSafety(exif, provenance);
+    if (!exportSafety.canExport) {
+      onNotification(
+        'error',
+        'Export Blocked',
+        'Cannot export image: source media contains metadata or credentials that would be stripped.'
+      );
+      return;
+    }
+
     // Trigger browser download at source resolution
     const a = document.createElement('a');
     a.href = processedResult.objectUrl;
-    const baseName = imageState.name.replace(/\.[^/.]+$/, '');
-    a.download = `cleaned_${baseName}.png`;
+    const safeBaseName = sanitizeFilename(imageState.name, 'image');
+    a.download = `cleaned_${safeBaseName}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

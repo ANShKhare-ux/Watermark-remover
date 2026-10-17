@@ -165,4 +165,6 @@ export interface ProcessedVideoState {
   outputFormat: 'mp4' | 'webm';
   hasAudio: boolean;
   createdAt: number;
+  totalFramesProcessed?: number;
+  fileSizeBytes?: number;
 }

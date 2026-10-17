@@ -150,3 +150,15 @@
   color: var(--text-primary);
   font-weight: 500;
 }
+
+@media (max-width: 480px) {
+  .buttonsRow {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .controlsBar {
+    padding: 6px 8px;
+  }
+}
+

@@ -199,3 +199,24 @@
 .privacyIcon {
   color: var(--tone-success);
 }
+
+@media (max-width: 480px) {
+  .container {
+    padding: 12px;
+  }
+
+  .dropzone {
+    padding: 32px 16px;
+  }
+
+  .samplesGrid {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .sampleButton {
+    width: 100%;
+    justify-content: center;
+  }
+}
+

@@ -44,7 +44,11 @@ export async function getFFmpeg(
 
       ffmpegInstance = ffmpeg;
       return ffmpeg;
-    })();
+    })().catch((err) => {
+      loadPromise = null;
+      ffmpegInstance = null;
+      throw err;
+    });
   }
 
   return loadPromise;

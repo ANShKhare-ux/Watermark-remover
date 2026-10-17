@@ -100,13 +100,17 @@ export async function validateAndDecodeImage(file: File): Promise<ValidationResu
       (resolve, reject) => {
         const img = new Image();
         img.onload = () => {
-          if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-            resolve({ width: img.naturalWidth, height: img.naturalHeight });
+          const w = img.naturalWidth;
+          const h = img.naturalHeight;
+          img.src = '';
+          if (w > 0 && h > 0) {
+            resolve({ width: w, height: h });
           } else {
             reject(new Error('Invalid image dimensions'));
           }
         };
         img.onerror = () => {
+          img.src = '';
           reject(new Error('Image decode failure'));
         };
         img.src = tempObjectUrl!;

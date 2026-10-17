@@ -1,7 +1,7 @@
 import { fetchFile } from '@ffmpeg/util';
-import type { VideoFileState, VideoProcessingProgress, ProcessedVideoState } from '../types';
-import { getFFmpeg, terminateFFmpeg } from './ffmpegService';
-import { getOpenCv, executeInpainting } from './opencvService';
+import type { VideoFileState, VideoProcessingProgress, ProcessedVideoState } from '../types/index.ts';
+import { getFFmpeg, terminateFFmpeg } from './ffmpegService.ts';
+import { getOpenCv, executeInpainting } from './opencvService.ts';
 
 export interface VideoProcessingOptions {
   radius?: number;
@@ -68,7 +68,7 @@ export async function processVideoWatermark(
   const ffmpeg = await getFFmpeg();
 
   // 3. Setup processing parameters
-  const fps = options.fps || 24;
+  const fps = options.fps || videoState.frameRate || 24;
   const duration = Math.min(videoState.duration, 5.0);
   const totalFrames = Math.max(1, Math.floor(duration * fps));
   const width = videoState.width;
@@ -110,8 +110,9 @@ export async function processVideoWatermark(
       const videoData = await fetchFile(videoState.file);
       await ffmpeg.writeFile('source_input.mp4', videoData);
 
-      // Attempt extracting audio stream
+      // Attempt extracting audio stream with non-interactive overwrite
       const audioExec = await ffmpeg.exec([
+        '-y',
         '-i',
         'source_input.mp4',
         '-vn',
@@ -196,6 +197,7 @@ export async function processVideoWatermark(
     });
 
     const ffmpegArgs: string[] = [
+      '-y',
       '-framerate',
       String(fps),
       '-i',
@@ -247,7 +249,8 @@ export async function processVideoWatermark(
 
     // 8. Read assembled output file
     const outputData = await ffmpeg.readFile('output.mp4');
-    const outputBlob = new Blob([outputData], { type: 'video/mp4' });
+    const u8 = outputData instanceof Uint8Array ? outputData : new Uint8Array(outputData as any);
+    const outputBlob = new Blob([u8.buffer as ArrayBuffer], { type: 'video/mp4' });
     const outputUrl = URL.createObjectURL(outputBlob);
 
     const computeTimeMs = Math.round(performance.now() - startTime);
@@ -272,10 +275,17 @@ export async function processVideoWatermark(
       outputFormat: 'mp4',
       hasAudio: hasExtractedAudio,
       createdAt: Date.now(),
+      totalFramesProcessed: totalFrames,
+      fileSizeBytes: u8.byteLength,
     };
   } finally {
-    // 9. Thorough cleanup of virtual filesystem files
+    // 9. Thorough cleanup of virtual filesystem files and media resources
     try {
+      video.src = '';
+      video.load();
+      canvas.width = 0;
+      canvas.height = 0;
+
       for (const file of createdFrameFiles) {
         await ffmpeg.deleteFile(file).catch(() => {});
       }
@@ -295,4 +305,29 @@ export async function processVideoWatermark(
  */
 export function cancelVideoProcessing(): void {
   terminateFFmpeg();
+}
+
+export interface ProcessVideoParams {
+  videoState: VideoFileState;
+  maskImageData: ImageData;
+  inpaintRadius?: number;
+  onProgress?: (progress: VideoProcessingProgress) => void;
+  signal?: AbortSignal;
+}
+
+/**
+ * Convenience orchestrator for video inpainting with parameter object
+ */
+export async function processVideoWithInpainting({
+  videoState,
+  maskImageData,
+  inpaintRadius = 5,
+  onProgress,
+  signal,
+}: ProcessVideoParams): Promise<ProcessedVideoState> {
+  return processVideoWatermark(videoState, maskImageData, {
+    radius: inpaintRadius,
+    onProgress,
+    signal,
+  });
 }

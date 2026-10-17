@@ -153,16 +153,27 @@ export const ComparisonViewer: React.FC<ComparisonViewerProps> = ({
                   />
                 </div>
 
-                {/* Draggable Divider Bar */}
+                {/* Draggable Divider Bar with Keyboard Support */}
                 <div
                   className={styles.splitDivider}
                   style={{ left: `${splitPos}%` }}
                   onPointerDown={handlePointerDown}
-                  title="Drag to compare before and after"
+                  title="Drag or use Left/Right arrow keys to compare before and after"
                   role="separator"
+                  tabIndex={0}
+                  aria-label="Image comparison split position"
                   aria-valuenow={Math.round(splitPos)}
                   aria-valuemin={0}
                   aria-valuemax={100}
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowLeft') {
+                      e.preventDefault();
+                      setSplitPos((p) => Math.max(0, p - 5));
+                    } else if (e.key === 'ArrowRight') {
+                      e.preventDefault();
+                      setSplitPos((p) => Math.min(100, p + 5));
+                    }
+                  }}
                 >
                   <div className={styles.dividerHandle}>
                     <SlidersHorizontal size={14} />

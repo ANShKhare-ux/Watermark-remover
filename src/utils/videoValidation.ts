@@ -177,5 +177,7 @@ export async function validateAndDecodeVideo(file: File): Promise<VideoValidatio
     if (tempUrl) {
       URL.revokeObjectURL(tempUrl);
     }
+    video.src = '';
+    video.load();
   }
 }

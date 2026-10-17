@@ -166,14 +166,44 @@ export function formatDate(val: any): string | null {
 }
 
 /**
- * Cleanly formats MIME type into a display label (e.g. 'image/png' -> 'PNG')
+ * Cleanly formats MIME type into a display label (e.g. 'image/png' -> 'PNG', 'video/mp4' -> 'MP4')
  */
 export function formatMimeType(mime: string, filename: string): string {
-  const normalized = mime.toLowerCase();
+  const normalized = (mime || '').toLowerCase();
   if (normalized.includes('jpeg') || normalized.includes('jpg')) return 'JPEG';
   if (normalized.includes('png')) return 'PNG';
   if (normalized.includes('webp')) return 'WebP';
+  if (normalized.includes('mp4')) return 'MP4';
+  if (normalized.includes('webm')) return 'WebM';
 
-  const ext = filename.split('.').pop()?.toUpperCase();
-  return ext || mime;
+  const ext = filename ? filename.split('.').pop()?.toUpperCase() : '';
+  return ext || mime || 'Unknown';
+}
+
+/**
+ * Sanitizes untrusted user filenames to prevent directory traversal, control character injection,
+ * and invalid filesystem characters in downloads.
+ */
+export function sanitizeFilename(rawName: string, fallback: string = 'media'): string {
+  if (!rawName || typeof rawName !== 'string') return fallback;
+
+  // 1. Remove path separators, null bytes, and directory traversal tokens
+  let clean = rawName
+    .replace(/^.*[\\/]/, '') // Strip preceding directory paths
+    .replace(/\0/g, '') // Strip null bytes
+    .replace(/\.\.+/g, '.') // Strip consecutive dots (prevent ..)
+    .replace(/\.[^/.]+$/, ''); // Strip file extension (extension is appended explicitly)
+
+  // 2. Remove non-printable, HTML, and special filesystem characters
+  clean = clean.replace(/[^a-zA-Z0-9_\-.]/g, '_').replace(/_+/g, '_');
+
+  // 3. Trim leading/trailing dots, underscores, dashes
+  clean = clean.replace(/^[._-]+|[._-]+$/g, '');
+
+  // 4. Limit length to 64 characters
+  if (clean.length > 64) {
+    clean = clean.slice(0, 64).replace(/[._-]+$/, '');
+  }
+
+  return clean || fallback;
 }

@@ -1,16 +1,19 @@
 # ClearFrame — AI Media Cleanup & Provenance Management
 
-> **Phase 1 & Phase 2 Complete**  
+> **Phase 1, Phase 2 & Phase 3 Complete**  
 > *Phase 1: Local Media Inspection, Metadata Extraction & Provenance Audit Foundation*  
-> *Phase 2: Functional Visible-Watermark Cleanup Editor with OpenCV Telea Inpainting & Provenance-Safe Export*
+> *Phase 2: Functional Visible-Watermark Cleanup Editor with OpenCV Telea Inpainting*  
+> *Phase 3: Video Cleanup MVP with Client-Side Frame Inpainting & FFmpeg WebAssembly Assembly*
 
 ---
 
 ## 1. Product Overview
 
-ClearFrame is a creative-tool web application built for inspecting images, auditing provenance credentials, and removing visible watermarks on media you own or have permission to edit.
+ClearFrame is a creative-tool web application built for inspecting images and videos, auditing provenance credentials, and removing visible watermarks on media you own or have permission to edit.
 
-Phase 2 introduces a functional, client-side visible-watermark cleanup editor powered by **OpenCV WebAssembly** (`@techstark/opencv-js`), **C2PA Content Credentials** inspection (`@contentauth/c2pa-web`), and strict **provenance-safe export safeguards**.
+- **Phase 1**: Local image inspection, comprehensive EXIF/camera optics parsing, and C2PA provenance analysis.
+- **Phase 2**: High-precision image cleanup editor with Alexandru Telea Fast Marching Method (`cv.INPAINT_TELEA`) inpainting, split comparison, and provenance-safe export guards.
+- **Phase 3**: Genuine local-first video cleanup workflow. Extracts video frames, applies the selected fixed-region mask consistently via OpenCV.js Telea inpainting, extracts and preserves audio tracks, reassembles frames with `@ffmpeg/ffmpeg` single-threaded WebAssembly, and presents interactive synchronized before-and-after comparison.
 
 ---
 
@@ -19,11 +22,12 @@ Phase 2 introduces a functional, client-side visible-watermark cleanup editor po
 - **Framework**: [React 19](https://react.dev/) + [Vite](https://vite.dev/)
 - **Language**: [TypeScript](https://www.typescriptlang.org/) (Strict module syntax & full type safety)
 - **Computer Vision Engine**: [`@techstark/opencv-js`](https://github.com/techstark/opencv-js) (Alexandru Telea Fast Marching Method `cv.INPAINT_TELEA`)
+- **Video Assembly Engine**: [`@ffmpeg/ffmpeg`](https://ffmpegwasm.netlify.app/) (v0.12.15), [`@ffmpeg/util`](https://github.com/ffmpegwasm/util) (v0.12.2), and single-threaded [`@ffmpeg/core`](https://github.com/ffmpegwasm/core) (v0.12.10) hosted locally in `/public/ffmpeg/` (zero third-party CDN dependencies)
 - **Provenance Engine**: [`@contentauth/c2pa-web`](https://github.com/contentauth/c2pa-js) (Official C2PA WebAssembly SDK with inlined reader)
 - **Metadata Engine**: [`exifr`](https://github.com/MikeKovarik/exifr) (extracts TIFF, EXIF, XMP, IPTC, and ICC tags client-side)
 - **Styling**: Vanilla CSS Design System with CSS Modules & custom properties (neutral graphite dark palette)
 - **Icons**: [`lucide-react`](https://lucide.dev/)
-- **Zero Backend / Zero Telemetry**: Fully localized in the browser sandbox. No API keys, no network requests, no analytics.
+- **Zero Backend / Zero Telemetry**: Fully localized in the browser sandbox. No API keys, no network requests, no remote server uploads.
 
 ---
 
@@ -32,26 +36,36 @@ Phase 2 introduces a functional, client-side visible-watermark cleanup editor po
 ```
 src/
 ├── types/
-│   ├── index.ts                 # Strongly-typed models for files, EXIF, editor, and provenance
+│   ├── index.ts                 # Strongly-typed models for files, videos, EXIF, editor, and provenance
 │   └── exifr.d.ts               # Custom type declarations for exifr
 ├── services/
 │   ├── opencvService.ts         # Asynchronous OpenCV.js runtime, Telea inpainting, Mat memory management
+│   ├── ffmpegService.ts         # Local-core FFmpeg singleton with lifecycle & cancellation management
+│   ├── videoProcessingService.ts# Sequential seek -> capture -> OpenCV inpaint -> FFmpeg write -> encode pipeline
 │   └── c2paService.ts           # C2PA manifest reader using @contentauth/c2pa-web/inline
 ├── utils/
-│   ├── fileValidation.ts        # MIME/extension checks, 50MB limits, off-thread image decode
+│   ├── fileValidation.ts        # Image MIME/extension checks, 50MB limits, off-thread image decode
+│   ├── videoValidation.ts       # Video container validation (MP4/WebM), 5s limit, 720p limit, codec check
 │   ├── exifReader.ts            # EXIF extraction, C2PA manifest inspection, AI signature detection
 │   ├── exportSafety.ts          # Provenance-safe export evaluation (blocks silent stripping)
-│   ├── formatters.ts            # Photographic formatters (shutter speed, ƒ-stop, aspect ratio)
-│   └── sampleImages.ts          # Client-side synthetic test assets (watermarked photo, calibration, alpha)
+│   ├── formatters.ts            # Formatters (shutter speed, ƒ-stop, aspect ratio, bytes)
+│   ├── sampleImages.ts          # Client-side synthetic test assets (watermarked photo, calibration, alpha)
+│   └── sampleVideos.ts          # Client-side synthetic 3s 720p test video with authorized watermark & 440Hz audio
 ├── components/
-│   ├── AppShell/                # Responsive layout, mode switcher (Editor vs Inspect), status bar
-│   ├── ImageEditor/             # Phase 2 Editor suite
+│   ├── AppShell/                # Responsive layout, mode switchers, reset, and status bar
+│   ├── ImageEditor/             # Phase 2 Image Editor suite
 │   │   ├── ImageEditor.tsx      # Main coordinator for painting, inpainting, history, and comparison
 │   │   ├── EditorToolbar.tsx    # Left toolbar: Brush, Eraser, sizes, radius, Undo/Redo, mask toggle
 │   │   ├── MaskCanvas.tsx       # Sub-pixel 1:1 image resolution coordinate mapping canvas
 │   │   ├── ComparisonViewer.tsx # Draggable split comparison slider, side-by-side, hold-to-compare
 │   │   └── ResultsPanel.tsx     # Inpainting performance metrics, Telea boundaries, and export guard
-│   ├── UploadPanel/             # Drag-and-drop dropzone, browse trigger, sample loaders
+│   ├── VideoEditor/             # Phase 3 Video Editor suite
+│   │   ├── VideoEditor.tsx      # Orchestrates video playback, mask drawing, pipeline, and export
+│   │   ├── VideoPlayer.tsx      # Custom playback controls, scrubber, timestamp, step ±1F, filmstrip
+│   │   ├── VideoMaskCanvas.tsx  # Native 1:1 video resolution coordinate mapping canvas overlay
+│   │   ├── VideoComparisonViewer.tsx # Synchronized dual-video playback with interactive split slider & side-by-side
+│   │   └── VideoResultsPanel.tsx     # Real-time progress bar, cancel action, clip specs, provenance notice, MP4 export
+│   ├── UploadPanel/             # Drag-and-drop dropzone, browse trigger, image & video sample loaders
 │   ├── MediaPreview/            # Phase 1 Canvas workspace with zoom, fit, checkerboard backdrop
 │   ├── FileInfoPanel/           # File specs, camera & hardware, optics, and privacy status
 │   ├── ProvenancePanel/         # 4-row provenance audit (C2PA, EXIF, SynthID, Platform AI)
@@ -64,42 +78,41 @@ src/
 
 ---
 
-## 4. Key Capabilities & Implementation Details
+## 4. Phase 3 Video Cleanup MVP Capabilities
 
-### A. Genuine OpenCV Telea Inpainting
-- **Mathematical Foundation**: Implements Alexandru Telea’s Fast Marching Method (FMM) (`cv.INPAINT_TELEA`). Propagates color gradients from the surrounding boundary inward along the level lines.
-- **Grayscale Mask Processing**: Extracts an 8-bit single-channel mask (`CV_8UC1`) where non-zero pixels represent the marked watermark.
-- **Full Source Resolution**: Converts RGBA pixels to 3-channel RGB (`CV_8UC3`) for `cv.inpaint`, executes inpainting at native pixel resolution, converts back to RGBA (`CV_8UC4`), and creates an in-memory preview.
-- **Memory Safety**: Guaranteed WebAssembly memory deallocation (`srcRGBA.delete()`, `srcRGB.delete()`, `maskMat.delete()`, `dstRGB.delete()`, `dstRGBA.delete()`) inside `try...finally` blocks.
-- **Honest Performance & Technique Disclosure**: Displays exact compute duration in milliseconds and modified pixel counts. Notes transparently that classical inpainting reconstructs from boundary gradients and does not fabricate stochastic AI textures.
+### A. Video Import & Strict Validation
+- **Formats Supported**: MP4 (`video/mp4`, H.264/AAC) and WebM (`video/webm`, VP8/VP9/Vorbis).
+- **Format Validation**: Rejects unsupported containers (MOV, AVI, MKV, FLV) with clear readable guidance.
+- **Phase 3 MVP Ceilings**:
+  - Maximum duration: **5.0 seconds** (enforces fast client-side turnarounds and prevents browser memory exhaustion).
+  - Maximum resolution: **720p** ($1280 \times 720$, 921,600 pixels).
+  - Maximum file size: **50 MB**.
+- **Metadata Extraction**: Reads native pixel dimensions, duration, estimated frame rate, and audio track presence.
 
-### B. High-Precision Editor Interface
-- **Left Toolbar**:
-  - **Brush Tool**: Smooth stroke painting on the mask.
-  - **Eraser Tool**: Subtracts from the mask using `destination-out`.
-  - **Brush Diameter Slider**: 4px to 80px with real-time visual cursor ring matching diameter.
-  - **Telea Neighborhood Radius**: 1px to 20px slider with instant parameter tuning.
-  - **Undo & Redo**: Stack-based stroke history with `Ctrl+Z`, `Ctrl+Shift+Z`, and `Ctrl+Y` shortcuts.
-  - **Clear Selection**: Wipes the active mask.
-  - **Mask Visibility Toggle**: Toggles overlay to inspect underlying watermark without obstruction.
-- **Sub-Pixel Coordinate Mapping**:
-  `x = ((clientX - rect.left) / rect.width) * canvas.width`
-  `y = ((clientY - rect.top) / rect.height) * canvas.height`
-  Every stroke is rendered onto a 1:1 offscreen buffer matching the exact native dimensions of the uploaded image.
-- **Results & Comparison Viewer**:
-  - **Draggable Split Slider**: Compare original vs cleaned result with an interactive divider.
-  - **Side-by-Side Mode**: Dual view of before and after images.
-  - **Hold to View Original**: Press and hold to temporarily preview the unedited source.
-  - **Reset to Original**: Restores unedited source image with full state reset.
+### B. Video Editor Interface
+- **Native Video Preview & Playback**: Custom play/pause, seek scrubber, current timestamp vs total duration formatted as `mm:ss.ms`.
+- **Frame Stepping**: Accurate single-frame forward (`+1F`) and single-frame backward (`-1F`) buttons.
+- **Filmstrip Thumbnails**: Extracts equidistant timestamped thumbnails across the clip to aid navigation.
+- **High-Precision Selection Canvas**: Overlays the video element with an exact 1:1 pixel coordinate mapping canvas that scales automatically to any aspect ratio or container sizing without coordinate drift.
+- **Drawing Tools**: Brush tool (diameter 4px–80px), Eraser tool (`destination-out`), Undo/Redo stack, and Clear Selection.
 
-### C. Provenance & Metadata Safeguards
-This tool strictly refuses to act as a stealth metadata or provenance stripper:
-- **C2PA Inspection**: Uses `@contentauth/c2pa-web` to inspect embedded C2PA manifests, distinguishing verified credentials, validation failures, inspection errors, and uncredentialed media.
-- **Export Blocker Policy**:
-  - If an image contains **C2PA Content Credentials**: Export is disabled. Editing pixels breaks cryptographic manifest hashes; exporting without private key CA signing would silently tamper provenance.
-  - If an image contains **AI Disclosure Markers** (IPTC/XMP): Export is disabled. Standard browser canvas rasterization discards metadata, stripping origin disclosure.
-  - If an image contains **EXIF Metadata**: Export is disabled to prevent silent camera and optics stripping.
-  - If the image contains **no metadata or credentials**: Export is safely enabled at full native resolution.
+### C. Authentic OpenCV Frame-by-Frame Inpainting
+- **Stationary Fixed-Region Mask**: Reuses the user-drawn 2D binary mask across all frames of the clip.
+- **Real Inpainting**: Employs OpenCV.js Telea Fast Marching Method (`cv.INPAINT_TELEA`) with configurable neighborhood radius. Does not substitute mock blurs, solid rectangles, or fake AI.
+- **Memory Safety**: Decoded frames are not accumulated into an unbounded array. Each frame is extracted, inpainted, written to the FFmpeg virtual filesystem, and immediately dereferenced with its OpenCV matrices deleted via `.delete()`.
+- **Non-Destructive**: The original source video file and object URL remain untouched.
+
+### D. Audio Preservation & FFmpeg Reassembly
+- **Local Single-Threaded Core**: Loads `ffmpeg-core.js` and `ffmpeg-core.wasm` locally from `/public/ffmpeg/` via `toBlobURL()`. Requires no third-party CDNs and avoids cross-origin isolation requirements.
+- **Audio Extraction & Remuxing**: Extracts existing audio streams via `-vn -acodec aac` and re-encodes alongside the newly inpainted frame sequence using `-shortest` to ensure exact sync.
+- **Progress & Cancellation**: Reports live progress percentage and frame counts (`X / Y frames`). Allows users to safely cancel in-flight jobs via `AbortController`.
+- **Validated MP4 Output**: Outputs a validated, playable H.264/AAC MP4 ready for Chrome, Safari, and Firefox.
+
+### E. Provenance & Privacy Safeguards
+- **Honest Fixed-Region Disclosure**: Clearly explains that fixed-region inpainting is designed for stationary overlays (timestamps, corner logos) and can produce boundary artifacts if high-contrast objects move behind the mask.
+- **No Invisible Watermark Stripping**: ClearFrame is strictly for authorized visible overlay removal. It does not tamper with SynthID, C2PA cryptographic manifests, or invisible steganographic markers.
+- **Provenance Disclosure**: Discloses that browser-side H.264 transcoding generates an uncredentialed output stream and does not fabricate C2PA claims.
+- **Zero Remote Uploads**: 100% of processing and video frames stay in the client browser sandbox.
 
 ---
 
@@ -109,7 +122,7 @@ This tool strictly refuses to act as a stealth metadata or provenance stripper:
 ```bash
 npm run dev
 ```
-Starts Vite locally at `http://localhost:5173/`.
+Starts Vite locally at `http://127.0.0.1:5173/`.
 
 ### Running Production Build
 ```bash
@@ -121,10 +134,39 @@ Executes TypeScript type checking (`tsc -b`) and Vite production bundle generati
 ```bash
 npm test
 ```
-Runs 14 unit tests across formatters, aspect ratio calculations, MIME type validation, 50MB safety ceiling, and export safety provenance rules.
+Runs 24 automated unit tests across:
+- Filename sanitization against path traversal, control characters, and injection.
+- Formatters (aspect ratios, shutter speeds, ƒ-stops, megapixels, dates, video MIME types).
+- Image validation (empty 0-byte check, unsupported format rejection, 50MB ceiling).
+- Video validation (container validation, empty 0-byte check, 5.0s duration ceiling, 720p resolution limit, 50MB ceiling).
+- Provenance export safety policies (C2PA, AI disclosure, EXIF presence, validation failure, null safety).
+- Inpainting safety guards (empty mask rejection, 36 Megapixel memory ceiling, pre-aborted signal cancellation).
 
 ### Code Quality & Linting
 ```bash
 npm run lint
 ```
-Runs `oxlint` with 0 errors and 0 warnings across all 26 files.
+Runs `oxlint src` with 0 errors and 0 warnings across all 32 source files.
+
+### Production Preview
+```bash
+npm run preview
+```
+Serves the generated `dist/` bundle on `http://localhost:4173/` for production verification.
+
+---
+
+## 6. Known Limitations & Troubleshooting
+
+1. **Browser WebAssembly Support**:
+   - ClearFrame requires a modern browser supporting WebAssembly and Web Workers (Chrome 90+, Edge 90+, Firefox 90+, Safari 16.4+).
+2. **Fixed-Region Video Inpainting**:
+   - The Phase 3/4 MVP uses a stationary 2D selection mask. Moving watermarks or dynamic camera motion across the watermark region require tracking, which is planned for future phases.
+   - If high-contrast objects pass behind the masked region, boundary artifacts or color smearing can occur.
+3. **C2PA Transcoding Disclosures**:
+   - Standard browser rasterization (Canvas 2D / FFmpeg WebAssembly) does not retain embedded C2PA cryptographic manifests.
+   - Images with detected C2PA manifests or EXIF metadata have exports disabled to prevent silent provenance stripping.
+   - Exported video outputs are uncredentialed; ClearFrame does not fabricate fake cryptographic claims.
+4. **Memory Ceilings**:
+   - Single-threaded WebAssembly memory is bounded. Input images exceeding 36 MP or videos exceeding 720p or 5.0 seconds are rejected upfront with readable user feedback to prevent browser tab crashes.
+
