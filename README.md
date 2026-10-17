@@ -1,15 +1,16 @@
-# ClearFrame — Phase 1 Foundation
+# ClearFrame — AI Media Cleanup & Provenance Management
 
-> **AI Media Cleanup & Provenance Management Tool**  
-> *Phase 1: Local Media Inspection, Metadata Extraction & Provenance Audit Foundation*
+> **Phase 1 & Phase 2 Complete**  
+> *Phase 1: Local Media Inspection, Metadata Extraction & Provenance Audit Foundation*  
+> *Phase 2: Functional Visible-Watermark Cleanup Editor with OpenCV Telea Inpainting & Provenance-Safe Export*
 
 ---
 
 ## 1. Product Overview
 
-ClearFrame is a creative-tool web application built for inspecting images, auditing provenance credentials, and preparing media for visible watermark cleanup. 
+ClearFrame is a creative-tool web application built for inspecting images, auditing provenance credentials, and removing visible watermarks on media you own or have permission to edit.
 
-Phase 1 establishes a client-side foundation. It provides an inspection workspace inspired by professional media software (Lightroom, Figma, DaVinci Resolve) with a neutral black and graphite color palette, precise optical metrics, and rigorous privacy safeguards.
+Phase 2 introduces a functional, client-side visible-watermark cleanup editor powered by **OpenCV WebAssembly** (`@techstark/opencv-js`), **C2PA Content Credentials** inspection (`@contentauth/c2pa-web`), and strict **provenance-safe export safeguards**.
 
 ---
 
@@ -17,8 +18,10 @@ Phase 1 establishes a client-side foundation. It provides an inspection workspac
 
 - **Framework**: [React 19](https://react.dev/) + [Vite](https://vite.dev/)
 - **Language**: [TypeScript](https://www.typescriptlang.org/) (Strict module syntax & full type safety)
-- **Styling**: Vanilla CSS Design System with CSS Modules & custom properties (neutral graphite dark palette)
+- **Computer Vision Engine**: [`@techstark/opencv-js`](https://github.com/techstark/opencv-js) (Alexandru Telea Fast Marching Method `cv.INPAINT_TELEA`)
+- **Provenance Engine**: [`@contentauth/c2pa-web`](https://github.com/contentauth/c2pa-js) (Official C2PA WebAssembly SDK with inlined reader)
 - **Metadata Engine**: [`exifr`](https://github.com/MikeKovarik/exifr) (extracts TIFF, EXIF, XMP, IPTC, and ICC tags client-side)
+- **Styling**: Vanilla CSS Design System with CSS Modules & custom properties (neutral graphite dark palette)
 - **Icons**: [`lucide-react`](https://lucide.dev/)
 - **Zero Backend / Zero Telemetry**: Fully localized in the browser sandbox. No API keys, no network requests, no analytics.
 
@@ -29,17 +32,27 @@ Phase 1 establishes a client-side foundation. It provides an inspection workspac
 ```
 src/
 ├── types/
-│   ├── index.ts                 # Strongly-typed models for files, EXIF, and provenance
+│   ├── index.ts                 # Strongly-typed models for files, EXIF, editor, and provenance
 │   └── exifr.d.ts               # Custom type declarations for exifr
+├── services/
+│   ├── opencvService.ts         # Asynchronous OpenCV.js runtime, Telea inpainting, Mat memory management
+│   └── c2paService.ts           # C2PA manifest reader using @contentauth/c2pa-web/inline
 ├── utils/
 │   ├── fileValidation.ts        # MIME/extension checks, 50MB limits, off-thread image decode
-│   ├── exifReader.ts            # EXIF extraction, C2PA box scanning, AI signature detection
+│   ├── exifReader.ts            # EXIF extraction, C2PA manifest inspection, AI signature detection
+│   ├── exportSafety.ts          # Provenance-safe export evaluation (blocks silent stripping)
 │   ├── formatters.ts            # Photographic formatters (shutter speed, ƒ-stop, aspect ratio)
-│   └── sampleImages.ts          # Instant client-side synthetic test assets (JPEG, PNG, WebP)
+│   └── sampleImages.ts          # Client-side synthetic test assets (watermarked photo, calibration, alpha)
 ├── components/
-│   ├── AppShell/                # Responsive application layout, header, footer, notifications
+│   ├── AppShell/                # Responsive layout, mode switcher (Editor vs Inspect), status bar
+│   ├── ImageEditor/             # Phase 2 Editor suite
+│   │   ├── ImageEditor.tsx      # Main coordinator for painting, inpainting, history, and comparison
+│   │   ├── EditorToolbar.tsx    # Left toolbar: Brush, Eraser, sizes, radius, Undo/Redo, mask toggle
+│   │   ├── MaskCanvas.tsx       # Sub-pixel 1:1 image resolution coordinate mapping canvas
+│   │   ├── ComparisonViewer.tsx # Draggable split comparison slider, side-by-side, hold-to-compare
+│   │   └── ResultsPanel.tsx     # Inpainting performance metrics, Telea boundaries, and export guard
 │   ├── UploadPanel/             # Drag-and-drop dropzone, browse trigger, sample loaders
-│   ├── MediaPreview/            # Canvas workspace with zoom, fit, checkerboard backdrop, pixel inspector
+│   ├── MediaPreview/            # Phase 1 Canvas workspace with zoom, fit, checkerboard backdrop
 │   ├── FileInfoPanel/           # File specs, camera & hardware, optics, and privacy status
 │   ├── ProvenancePanel/         # 4-row provenance audit (C2PA, EXIF, SynthID, Platform AI)
 │   ├── StatusMessage/           # Accessible alert banners (success, warning, error, info)
@@ -51,42 +64,42 @@ src/
 
 ---
 
-## 4. Key Functional Capabilities
+## 4. Key Capabilities & Implementation Details
 
-### A. Local Image Upload & Validation
-- **Supported Formats**: JPEG (`image/jpeg`), PNG (`image/png`), and WebP (`image/webp`).
-- **Input Channels**: Drag-and-drop onto the dropzone or system file picker dialog.
-- **Safety Validations**:
-  - Validates MIME type and file extension before loading.
-  - Enforces a 50 MB client-side safety limit to prevent memory crashes.
-  - Asynchronously verifies image decodability using `createImageBitmap` and `Image()`, safely rejecting malformed or truncated files.
-- **Zero Memory Leaks**: All `URL.createObjectURL` references are tracked and revoked with `URL.revokeObjectURL` upon file replacement, reset, or component unmount.
+### A. Genuine OpenCV Telea Inpainting
+- **Mathematical Foundation**: Implements Alexandru Telea’s Fast Marching Method (FMM) (`cv.INPAINT_TELEA`). Propagates color gradients from the surrounding boundary inward along the level lines.
+- **Grayscale Mask Processing**: Extracts an 8-bit single-channel mask (`CV_8UC1`) where non-zero pixels represent the marked watermark.
+- **Full Source Resolution**: Converts RGBA pixels to 3-channel RGB (`CV_8UC3`) for `cv.inpaint`, executes inpainting at native pixel resolution, converts back to RGBA (`CV_8UC4`), and creates an in-memory preview.
+- **Memory Safety**: Guaranteed WebAssembly memory deallocation (`srcRGBA.delete()`, `srcRGB.delete()`, `maskMat.delete()`, `dstRGB.delete()`, `dstRGBA.delete()`) inside `try...finally` blocks.
+- **Honest Performance & Technique Disclosure**: Displays exact compute duration in milliseconds and modified pixel counts. Notes transparently that classical inpainting reconstructs from boundary gradients and does not fabricate stochastic AI textures.
 
-### B. Media Preview Workspace
-- **Dynamic Viewport**: Supports **Fit to Screen**, **100% Actual Pixels**, and variable zoom levels (`+` / `-`).
-- **Transparency Inspection**: One-click toggle between solid dark graphite background and an optical checkerboard pattern for PNG-24 and WebP alpha channels.
-- **Floating Optical Metrics**: Displays live resolution ($W \times H$), aspect ratio (e.g. 16:9, 4:3), and megapixels.
-- **Pixel Coordinate Inspector**: Computes real-time integer pixel coordinates ($X, Y$) when hovering over the image canvas.
-- **Keyboard Shortcuts**:
-  - `+` / `=`: Zoom in
-  - `-` / `_`: Zoom out
-  - `0`: Fit to workspace
-  - `1`: 100% Actual size
-  - `Esc`: Reset workspace
+### B. High-Precision Editor Interface
+- **Left Toolbar**:
+  - **Brush Tool**: Smooth stroke painting on the mask.
+  - **Eraser Tool**: Subtracts from the mask using `destination-out`.
+  - **Brush Diameter Slider**: 4px to 80px with real-time visual cursor ring matching diameter.
+  - **Telea Neighborhood Radius**: 1px to 20px slider with instant parameter tuning.
+  - **Undo & Redo**: Stack-based stroke history with `Ctrl+Z`, `Ctrl+Shift+Z`, and `Ctrl+Y` shortcuts.
+  - **Clear Selection**: Wipes the active mask.
+  - **Mask Visibility Toggle**: Toggles overlay to inspect underlying watermark without obstruction.
+- **Sub-Pixel Coordinate Mapping**:
+  `x = ((clientX - rect.left) / rect.width) * canvas.width`
+  `y = ((clientY - rect.top) / rect.height) * canvas.height`
+  Every stroke is rendered onto a 1:1 offscreen buffer matching the exact native dimensions of the uploaded image.
+- **Results & Comparison Viewer**:
+  - **Draggable Split Slider**: Compare original vs cleaned result with an interactive divider.
+  - **Side-by-Side Mode**: Dual view of before and after images.
+  - **Hold to View Original**: Press and hold to temporarily preview the unedited source.
+  - **Reset to Original**: Restores unedited source image with full state reset.
 
-### C. File Information Panel
-- **File Specifications**: Original filename (with one-click copy), MIME format, exact byte size, dimensions, aspect ratio, and megapixels.
-- **Camera & Hardware (EXIF)**: Camera make & model, lens model, capture date/time, and software. Unavailable fields display as `—` rather than fabricated values.
-- **Optics & Exposure**: Exposure time (photographic fractional shutter speed, e.g., `1/250s`), aperture (e.g., `ƒ/2.8`), ISO sensitivity, focal length with 35mm equivalent, and color profile.
-- **Privacy First**: GPS coordinates detected in EXIF headers are explicitly protected and hidden by default.
-
-### D. Provenance & Verification Audit
-Provides separate status rows for four provenance tiers:
-1. **C2PA Content Credentials**: Inspects binary container streams for JUMBF (`c2pa`, `c2ma`, `caBX`) box headers.
-2. **EXIF Metadata Headers**: Detects presence and count of camera exchangeable tags.
-3. **SynthID Verification**: Accurately shows **Detector not integrated** (reflecting that Google DeepMind SynthID requires server-side neural inference).
-4. **Platform AI Labels**: Scans standardized IPTC `DigitalSourceType` (e.g. `trainedAlgorithmicMedia`) and known generator signatures (Midjourney, DALL-E, Stable Diffusion, Firefly, Flux).
-- **Provenance Disclaimer**: Features an explicit notice that missing markers do not imply human authorship or watermark-free content.
+### C. Provenance & Metadata Safeguards
+This tool strictly refuses to act as a stealth metadata or provenance stripper:
+- **C2PA Inspection**: Uses `@contentauth/c2pa-web` to inspect embedded C2PA manifests, distinguishing verified credentials, validation failures, inspection errors, and uncredentialed media.
+- **Export Blocker Policy**:
+  - If an image contains **C2PA Content Credentials**: Export is disabled. Editing pixels breaks cryptographic manifest hashes; exporting without private key CA signing would silently tamper provenance.
+  - If an image contains **AI Disclosure Markers** (IPTC/XMP): Export is disabled. Standard browser canvas rasterization discards metadata, stripping origin disclosure.
+  - If an image contains **EXIF Metadata**: Export is disabled to prevent silent camera and optics stripping.
+  - If the image contains **no metadata or credentials**: Export is safely enabled at full native resolution.
 
 ---
 
@@ -108,20 +121,10 @@ Executes TypeScript type checking (`tsc -b`) and Vite production bundle generati
 ```bash
 npm test
 ```
-Runs the native Node test runner validating all formatters, aspect ratio calculations, MIME type validations, and file size limits.
+Runs 14 unit tests across formatters, aspect ratio calculations, MIME type validation, 50MB safety ceiling, and export safety provenance rules.
 
 ### Code Quality & Linting
 ```bash
 npm run lint
 ```
-Runs `oxlint` with 0 errors and 0 warnings.
-
----
-
-## 6. Scope Restrictions & Limitations (Phase 1)
-
-This project strictly adheres to Phase 1 Foundation boundaries:
-- **No Inpainting / AI Removal in Phase 1**: Watermark cleanup algorithms will be introduced in subsequent phases.
-- **No Cloud Uploads or Telemetry**: All data stays on the local device.
-- **No Video Processing**: Phase 1 is focused on raster images (JPEG, PNG, WebP).
-- **No Accounts / Billing / Databases**: Standalone client application.
+Runs `oxlint` with 0 errors and 0 warnings across all 26 files.

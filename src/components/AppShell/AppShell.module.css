@@ -65,6 +65,38 @@
   gap: 12px;
 }
 
+.modeSwitcher {
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  gap: 2px;
+}
+
+.modeSwitchButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  transition: all 0.12s ease;
+}
+
+.modeSwitchButton:hover {
+  color: var(--text-secondary);
+}
+
+.modeSwitchActive {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
 .privacyBadge {
   display: inline-flex;
   align-items: center;

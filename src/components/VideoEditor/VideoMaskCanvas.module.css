@@ -1,0 +1,21 @@
+.canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  cursor: none;
+  touch-action: none;
+  z-index: 5;
+}
+
+.cursorRing {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.8), inset 0 0 2px rgba(0, 0, 0, 0.8);
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  display: none;
+}

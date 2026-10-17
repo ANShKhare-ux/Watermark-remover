@@ -1,0 +1,213 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-workspace);
+  position: relative;
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background-color: var(--bg-panel);
+  border-bottom: 1px solid var(--border-default);
+  z-index: 10;
+  gap: 12px;
+}
+
+.buttonGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.modeButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: var(--radius-xs);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background-color: transparent;
+  border: 1px solid transparent;
+  transition: all 0.12s ease;
+}
+
+.modeButton:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.modeButtonActive {
+  background-color: var(--bg-active);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.holdButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: var(--radius-xs);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+  user-select: none;
+}
+
+.holdButton:active,
+.holdButtonActive {
+  background-color: var(--tone-warning-bg);
+  border-color: var(--tone-warning);
+  color: var(--tone-warning);
+}
+
+.workspace {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 24px;
+  position: relative;
+}
+
+/* Split slider container */
+.splitContainer {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.splitBaseImage {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 220px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.splitOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.splitOverlayImage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  max-height: calc(100vh - 220px);
+  width: auto;
+  object-fit: contain;
+}
+
+.splitDivider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: #ffffff;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
+  cursor: ew-resize;
+  z-index: 15;
+  transform: translateX(-50%);
+}
+
+.dividerHandle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  color: #0c0d10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.labelBadge {
+  position: absolute;
+  bottom: 12px;
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background-color: rgba(12, 13, 16, 0.85);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.labelBefore {
+  left: 12px;
+}
+
+.labelAfter {
+  right: 12px;
+}
+
+/* Side by side container */
+.sideBySideContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.sideCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.sideHeader {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.sideImage {
+  display: block;
+  max-height: calc(100vh - 260px);
+  max-width: 45vw;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  box-shadow: var(--shadow-md);
+}

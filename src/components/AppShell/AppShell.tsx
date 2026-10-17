@@ -5,6 +5,8 @@ import {
   ShieldCheck,
   RotateCcw,
   Sparkles,
+  Paintbrush,
+  Search,
 } from 'lucide-react';
 import type {
   ImageFileState,
@@ -24,6 +26,7 @@ import { UploadPanel } from '../UploadPanel/UploadPanel';
 import { MediaPreview } from '../MediaPreview/MediaPreview';
 import { FileInfoPanel } from '../FileInfoPanel/FileInfoPanel';
 import { ProvenancePanel } from '../ProvenancePanel/ProvenancePanel';
+import { ImageEditor } from '../ImageEditor/ImageEditor';
 import styles from './AppShell.module.css';
 
 export const AppShell: React.FC = () => {
@@ -33,21 +36,25 @@ export const AppShell: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<StatusNotification[]>([]);
   const [activeTab, setActiveTab] = useState<'details' | 'provenance'>('details');
+  const [appMode, setAppMode] = useState<'editor' | 'inspect'>('editor');
 
   // Track active Object URL for clean revocation
   const activeUrlRef = useRef<string | null>(null);
 
-  const addNotification = (
-    type: StatusNotification['type'],
-    title: string,
-    message: string
-  ) => {
-    const id = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    setNotifications((prev) => [
-      ...prev.slice(-2), // Keep at most 3 notifications at once
-      { id, type, title, message, dismissible: true },
-    ]);
-  };
+  const addNotification = useCallback(
+    (
+      type: StatusNotification['type'],
+      title: string,
+      message: string
+    ) => {
+      const id = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      setNotifications((prev) => [
+        ...prev.slice(-2), // Keep at most 3 notifications at once
+        { id, type, title, message, dismissible: true },
+      ]);
+    },
+    []
+  );
 
   const dismissNotification = (id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
@@ -61,6 +68,7 @@ export const AppShell: React.FC = () => {
     setImageState(null);
     setExifMetadata(null);
     setProvenanceData(null);
+    setAppMode('editor');
   }, []);
 
   // Cleanup object URL on unmount
@@ -117,15 +125,17 @@ export const AppShell: React.FC = () => {
       setImageState(newImageState);
       setExifMetadata(extracted.exif);
       setProvenanceData(extracted.provenance);
+      setAppMode('editor'); // Default to Cleanup Editor for Phase 2
 
       addNotification(
         'success',
         'Image Loaded',
-        `Successfully inspected ${file.name} (${width} × ${height} px).`
+        `Successfully loaded ${file.name} (${width} × ${height} px). Brush over visible watermarks to inpaint.`
       );
     } catch {
       // Fallback if metadata read throws unexpectedly
       setImageState(newImageState);
+      setAppMode('editor');
       addNotification(
         'warning',
         'Partial Metadata',
@@ -158,7 +168,7 @@ export const AppShell: React.FC = () => {
           <div className={styles.brandText}>
             <div className={styles.brandName}>
               <span>ClearFrame</span>
-              <Badge tone="neutral">Phase 1 Foundation</Badge>
+              <Badge tone="neutral">Phase 2 Editor</Badge>
             </div>
             <span className={styles.brandTagline}>
               AI Media Cleanup & Provenance Management
@@ -167,6 +177,35 @@ export const AppShell: React.FC = () => {
         </div>
 
         <div className={styles.headerActions}>
+          {/* Mode Switcher when image is loaded */}
+          {imageState && (
+            <div className={styles.modeSwitcher} role="tablist">
+              <button
+                type="button"
+                className={`${styles.modeSwitchButton} ${
+                  appMode === 'editor' ? styles.modeSwitchActive : ''
+                }`}
+                onClick={() => setAppMode('editor')}
+                title="Visible Watermark Cleanup Editor with Telea Inpainting"
+              >
+                <Paintbrush size={13} />
+                <span>Cleanup Editor</span>
+              </button>
+
+              <button
+                type="button"
+                className={`${styles.modeSwitchButton} ${
+                  appMode === 'inspect' ? styles.modeSwitchActive : ''
+                }`}
+                onClick={() => setAppMode('inspect')}
+                title="Inspect EXIF and Provenance Credentials"
+              >
+                <Search size={13} />
+                <span>Inspect & Provenance</span>
+              </button>
+            </div>
+          )}
+
           <div className={styles.privacyBadge}>
             <ShieldCheck size={13} color="#10b981" />
             <span>Client Sandbox • Zero Telemetry</span>
@@ -186,7 +225,7 @@ export const AppShell: React.FC = () => {
         </div>
       </header>
 
-      {/* Workspace Area */}
+      {/* Main Workspace Area */}
       <main className={styles.main}>
         {!imageState ? (
           <div className={styles.uploadWorkspace}>
@@ -195,12 +234,23 @@ export const AppShell: React.FC = () => {
               isLoading={isLoading}
             />
           </div>
+        ) : appMode === 'editor' ? (
+          /* Phase 2: Functional Image Cleanup Editor */
+          <ImageEditor
+            key={`editor-${imageState.objectUrl}`}
+            imageState={imageState}
+            exif={exifMetadata}
+            provenance={provenanceData}
+            onNotification={addNotification}
+            onResetImage={clearActiveImage}
+          />
         ) : (
+          /* Phase 1: Inspection & Provenance Workspace */
           <div className={styles.inspectionWorkspace}>
             {/* Center / Left: Interactive Media Preview Canvas */}
             <div className={styles.previewPane}>
               <MediaPreview
-                key={imageState.objectUrl}
+                key={`preview-${imageState.objectUrl}`}
                 imageState={imageState}
                 onReplaceImage={handleProcessFile}
                 onClearImage={clearActiveImage}
@@ -268,18 +318,22 @@ export const AppShell: React.FC = () => {
               {isLoading
                 ? 'Processing image and reading metadata headers…'
                 : imageState
-                ? `Inspecting: ${imageState.name} (${imageState.width} × ${imageState.height} px)`
-                : 'Ready for image inspection'}
+                ? `Active Asset: ${imageState.name} (${imageState.width} × ${imageState.height} px) • Mode: ${
+                    appMode === 'editor' ? 'Cleanup Editor' : 'Metadata Inspection'
+                  }`
+                : 'Ready for image inspection & visible watermark cleanup'}
             </span>
           </div>
         </div>
 
         <div className={styles.footerRight}>
-          <span>Format support: JPEG, PNG, WebP</span>
+          <span>Engine: OpenCV.js (Telea FMM)</span>
+          <span>•</span>
+          <span>Provenance: @contentauth/c2pa-web</span>
           <span>•</span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
             <Sparkles size={11} />
-            <span>Phase 1: Local Inspection Only</span>
+            <span>Phase 2: Inpainting Active</span>
           </span>
         </div>
       </footer>

@@ -1,0 +1,152 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+}
+
+.videoWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.videoElement {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 280px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  background-color: #000000;
+}
+
+.controlsBar {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 780px;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin-top: 12px;
+  gap: 8px;
+  box-shadow: var(--shadow-sm);
+}
+
+.scrubberRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.filmstrip {
+  display: flex;
+  width: 100%;
+  height: 28px;
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-card);
+}
+
+.filmstripThumb {
+  flex: 1;
+  height: 100%;
+  object-fit: cover;
+  border-right: 1px solid var(--border-subtle);
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+
+.filmstripThumb:hover {
+  opacity: 1;
+}
+
+.filmstripThumb:last-child {
+  border-right: none;
+}
+
+.timelineInput {
+  width: 100%;
+  height: 5px;
+  background: var(--border-default);
+  border-radius: 3px;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.timelineInput::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  transition: transform 0.1s ease;
+}
+
+.timelineInput::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.buttonsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.buttonGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ctrlButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 8px;
+  min-height: 28px;
+  border-radius: var(--radius-xs);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 500;
+  background-color: transparent;
+  border: 1px solid transparent;
+  transition: all 0.12s ease;
+}
+
+.ctrlButton:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+
+.timeReadout {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  padding: 0 4px;
+}
+
+.timeCurrent {
+  color: var(--text-primary);
+  font-weight: 500;
+}

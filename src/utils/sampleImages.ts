@@ -2,7 +2,7 @@
  * Generates test images client-side for immediate inspection
  */
 export async function createSampleImage(
-  type: 'photo' | 'png-transparent' | 'webp-banner'
+  type: 'photo' | 'png-transparent' | 'webp-banner' | 'watermarked-photo'
 ): Promise<File> {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
@@ -137,6 +137,100 @@ export async function createSampleImage(
     });
   }
 
+  if (type === 'watermarked-photo') {
+    // 1200x800 image with a distinct visible watermark
+    canvas.width = 1200;
+    canvas.height = 800;
+
+    // Atmospheric photo backdrop (sky gradient and horizon)
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, 500);
+    skyGrad.addColorStop(0, '#1a2238');
+    skyGrad.addColorStop(0.6, '#394867');
+    skyGrad.addColorStop(1, '#9ba4b4');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, 1200, 500);
+
+    // Foreground / landscape gradient
+    const groundGrad = ctx.createLinearGradient(0, 500, 0, 800);
+    groundGrad.addColorStop(0, '#2c394b');
+    groundGrad.addColorStop(1, '#0f172a');
+    ctx.fillStyle = groundGrad;
+    ctx.fillRect(0, 500, 1200, 300);
+
+    // Subtle sun / horizon glow
+    const sunGrad = ctx.createRadialGradient(600, 480, 20, 600, 480, 240);
+    sunGrad.addColorStop(0, 'rgba(255, 235, 180, 0.45)');
+    sunGrad.addColorStop(0.5, 'rgba(255, 180, 100, 0.15)');
+    sunGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = sunGrad;
+    ctx.fillRect(0, 200, 1200, 400);
+
+    // Distant mountain silhouettes
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.moveTo(0, 500);
+    ctx.lineTo(250, 420);
+    ctx.lineTo(450, 470);
+    ctx.lineTo(600, 390);
+    ctx.lineTo(800, 460);
+    ctx.lineTo(1050, 400);
+    ctx.lineTo(1200, 480);
+    ctx.lineTo(1200, 500);
+    ctx.closePath();
+    ctx.fill();
+
+    // Scene label
+    ctx.fillStyle = 'rgba(240, 241, 245, 0.85)';
+    ctx.font = '600 24px Inter, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Nordic Landscape Study #42', 60, 100);
+
+    ctx.fillStyle = 'rgba(158, 164, 180, 0.75)';
+    ctx.font = '14px JetBrains Mono, monospace';
+    ctx.fillText('Resolution: 1200 × 800 px  •  Visible Watermark Cleanup Test Asset', 60, 130);
+
+    // === Prominent Visible Watermark Stamp ===
+    // 1. Watermark box in lower-center area
+    ctx.save();
+    ctx.translate(600, 580);
+
+    // Semi-transparent watermark stamp pill
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(-240, -35, 480, 70, 8);
+    ctx.fill();
+    ctx.stroke();
+
+    // Watermark text
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 22px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('© CLEARFRAME SAMPLE WATERMARK', 0, -4);
+
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.fillText('VISIBLE WATERMARK • BRUSH OVER TO CLEAN WITH TELEA', 0, 18);
+
+    ctx.restore();
+
+    // Secondary subtle corner stamp
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.font = 'bold 16px Inter, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('SAMPLE PROOF', 1140, 750);
+
+    const blob = await new Promise<Blob>((res) =>
+      canvas.toBlob((b) => res(b!), 'image/jpeg', 0.95)
+    );
+    return new File([blob], 'watermarked_landscape_study.jpg', {
+      type: 'image/jpeg',
+      lastModified: Date.now(),
+    });
+  }
+
   // WebP Banner
   canvas.width = 1200;
   canvas.height = 630;
@@ -168,3 +262,4 @@ export async function createSampleImage(
     lastModified: Date.now(),
   });
 }
+

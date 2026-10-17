@@ -84,7 +84,7 @@ export const UploadPanel: React.FC<UploadPanelProps> = ({
   };
 
   const handleLoadSample = async (
-    type: 'photo' | 'png-transparent' | 'webp-banner',
+    type: 'photo' | 'png-transparent' | 'webp-banner' | 'watermarked-photo',
     label: string
   ) => {
     if (isLoading || loadingSample) return;
@@ -167,6 +167,16 @@ export const UploadPanel: React.FC<UploadPanelProps> = ({
       <div className={styles.samplesSection}>
         <div className={styles.samplesHeader}>Or try an instant sample test asset:</div>
         <div className={styles.samplesGrid}>
+          <button
+            type="button"
+            className={styles.sampleButton}
+            onClick={() => handleLoadSample('watermarked-photo', 'Watermarked Photo')}
+            disabled={isLoading || Boolean(loadingSample)}
+            title="Pre-loaded landscape photograph with a visible watermark stamp to test inpainting"
+          >
+            <Sparkles size={13} color="#f59e0b" />
+            <span style={{ fontWeight: 600 }}>Watermarked Photo (Test Inpainting)</span>
+          </button>
           <button
             type="button"
             className={styles.sampleButton}

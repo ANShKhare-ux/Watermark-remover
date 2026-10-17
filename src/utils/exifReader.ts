@@ -6,46 +6,12 @@ import {
   formatAperture,
   formatFocalLength,
 } from './formatters';
+import { inspectC2paManifest } from '../services/c2paService';
 
 export interface ExtractedImageMetadata {
   exif: ExifMetadata;
   provenance: ProvenanceData;
   rawTags: Record<string, any>;
-}
-
-/**
- * Scans an ArrayBuffer for standard C2PA / JUMBF box indicators
- */
-function inspectC2paMarkers(buffer: ArrayBuffer): {
-  detected: boolean;
-  marker?: string;
-} {
-  // Check within first 256KB or entire buffer if smaller
-  const maxScan = Math.min(buffer.byteLength, 262144);
-  const bytes = new Uint8Array(buffer, 0, maxScan);
-
-  // Signatures: "c2pa", "c2ma", "caBX", "jumb"
-  const signatures: { [key: string]: number[] } = {
-    c2pa: [0x63, 0x32, 0x70, 0x61],
-    c2ma: [0x63, 0x32, 0x6d, 0x61],
-    caBX: [0x63, 0x61, 0x42, 0x58],
-    jumb: [0x6a, 0x75, 0x6d, 0x62],
-  };
-
-  for (const [name, pattern] of Object.entries(signatures)) {
-    for (let i = 0; i < bytes.length - pattern.length; i++) {
-      if (
-        bytes[i] === pattern[0] &&
-        bytes[i + 1] === pattern[1] &&
-        bytes[i + 2] === pattern[2] &&
-        bytes[i + 3] === pattern[3]
-      ) {
-        return { detected: true, marker: name };
-      }
-    }
-  }
-
-  return { detected: false };
 }
 
 /**
@@ -129,7 +95,6 @@ function detectAiLabels(raw: Record<string, any>): {
  */
 export async function readImageMetadata(file: File): Promise<ExtractedImageMetadata> {
   let raw: Record<string, any> = {};
-  let c2paInspection: { detected: boolean; marker?: string } = { detected: false };
 
   // 1. Read EXIF / XMP / IPTC / TIFF tags via exifr
   try {
@@ -147,22 +112,16 @@ export async function readImageMetadata(file: File): Promise<ExtractedImageMetad
       raw = parsed;
     }
   } catch {
-    // If exifr encounters unrecognized binary segments, retain empty raw
     raw = {};
   }
 
-  // 2. Fast binary inspection for C2PA container box
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    c2paInspection = inspectC2paMarkers(arrayBuffer);
-  } catch {
-    // Fallback if arrayBuffer read fails
-  }
+  // 2. Full C2PA Manifest inspection via @contentauth/c2pa-web
+  const c2paResult = await inspectC2paManifest(file);
 
   // 3. Format EXIF fields
   const rawKeys = Object.keys(raw);
   const tagCount = rawKeys.length;
-  const hasExif = tagCount > 0 && !('ImageWidth' in raw && tagCount <= 4); // avoid just IHDR dimensions
+  const hasExif = tagCount > 0 && !('ImageWidth' in raw && tagCount <= 4);
 
   // GPS check: detect presence without exposing coordinates by default
   const hasGps = Boolean(
@@ -210,32 +169,58 @@ export async function readImageMetadata(file: File): Promise<ExtractedImageMetad
   };
 
   // 4. Construct Provenance Status Rows
-  // C2PA Row
-  const c2paItem: ProvenanceItem = c2paInspection.detected
-    ? {
-        id: 'c2pa',
-        title: 'C2PA Content Credentials',
-        category: 'Provenance Standard',
-        status: 'detected',
-        statusLabel: 'Container Detected',
-        statusTone: 'info',
-        summary: `JUMBF/C2PA marker [${c2paInspection.marker}] detected in file stream.`,
-        technicalDetails:
-          'A Coalition for Content Provenance and Authenticity (C2PA) box structure is present. Complete cryptographic signature verification requires root trust store validation in Phase 2.',
-        specificationUrl: 'https://c2pa.org/specifications/',
-      }
-    : {
-        id: 'c2pa',
-        title: 'C2PA Content Credentials',
-        category: 'Provenance Standard',
-        status: 'not_detected',
-        statusLabel: 'Not Detected',
-        statusTone: 'neutral',
-        summary: 'No C2PA manifest or JUMBF container found in file headers.',
-        technicalDetails:
-          'No C2PA provenance manifest was located. Many web services, photo editors, and social networks strip metadata headers during export or compression.',
-        specificationUrl: 'https://c2pa.org/specifications/',
-      };
+  let c2paItem: ProvenanceItem;
+  if (c2paResult.status === 'detected') {
+    c2paItem = {
+      id: 'c2pa',
+      title: 'C2PA Content Credentials',
+      category: 'Provenance Standard',
+      status: 'detected',
+      statusLabel: 'Credentials Present',
+      statusTone: 'info',
+      summary: c2paResult.summary,
+      technicalDetails: c2paResult.technicalDetails,
+      specificationUrl: 'https://c2pa.org/specifications/',
+      manifestInfo: c2paResult.manifestInfo,
+    };
+  } else if (c2paResult.status === 'validation_failure') {
+    c2paItem = {
+      id: 'c2pa',
+      title: 'C2PA Content Credentials',
+      category: 'Provenance Standard',
+      status: 'validation_failure',
+      statusLabel: 'Validation Failed',
+      statusTone: 'error',
+      summary: c2paResult.summary,
+      technicalDetails: c2paResult.technicalDetails,
+      specificationUrl: 'https://c2pa.org/specifications/',
+    };
+  } else if (c2paResult.status === 'inspection_error') {
+    c2paItem = {
+      id: 'c2pa',
+      title: 'C2PA Content Credentials',
+      category: 'Provenance Standard',
+      status: 'inspection_error',
+      statusLabel: 'Inspection Issue',
+      statusTone: 'warning',
+      summary: c2paResult.summary,
+      technicalDetails: c2paResult.technicalDetails,
+      specificationUrl: 'https://c2pa.org/specifications/',
+    };
+  } else {
+    c2paItem = {
+      id: 'c2pa',
+      title: 'C2PA Content Credentials',
+      category: 'Provenance Standard',
+      status: 'not_detected',
+      statusLabel: 'Not Detected',
+      statusTone: 'neutral',
+      summary: 'No embedded C2PA manifest or JUMBF container found in file.',
+      technicalDetails:
+        'The file stream contains no C2PA manifests. Many web platforms and photo editors strip provenance manifests on export.',
+      specificationUrl: 'https://c2pa.org/specifications/',
+    };
+  }
 
   // EXIF Row
   const exifItem: ProvenanceItem = hasExif
@@ -271,9 +256,9 @@ export async function readImageMetadata(file: File): Promise<ExtractedImageMetad
     statusLabel: 'Detector not integrated',
     statusTone: 'neutral',
     summary:
-      'Proprietary DeepMind detector is not integrated in client-only Phase 1.',
+      'Proprietary DeepMind detector is not integrated in client-only Phase 2.',
     technicalDetails:
-      'Google DeepMind SynthID embeds imperceptible watermarks directly into digital pixel frequencies. Detection requires proprietary model inference and cannot be performed client-side without external API integration.',
+      'Google DeepMind SynthID embeds imperceptible watermarks directly into digital pixel frequencies. Detection requires proprietary neural model inference and cannot be performed client-side without external API access.',
     specificationUrl: 'https://deepmind.google/technologies/synthid/',
   };
 
